@@ -40,6 +40,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     // AddPortia returns the same builder and lets this host contribute its generated JSON context.
     builder.Services.AddPortia()
         .AddHttp()
+        .AddRequestHandler<ReviseApplicationMcpInputHandler>()
+        .AddRequestHandler<PreviewApplicationChangeMcpInputHandler>()
         .AddMcpTool<DefineTeam>(tool => tool.Idempotent())
         .AddMcpTool<DeleteTeam>(tool => tool.Destructive())
         .AddMcpTool<GetTeam>(tool => tool.ReadOnly())
@@ -187,7 +189,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetProgramRevision>(tool => tool.ReadOnly())
         .AddMcpTool<GetProgramSetupWork>(tool => tool.ReadOnly())
         .AddMcpTool<DeclareApplication>()
-        .AddMcpTool<ReviseApplication>(tool => tool.Idempotent())
+        .AddMcpTool<ReviseApplicationMcpInput>(tool => tool.Named("bdgrz.application.revise")
+            .DescribedAs("Invokes the ReviseApplication request.").Idempotent())
         .AddMcpTool<DeclareSystemInstance>()
         .AddMcpTool<GetApplication>(tool => tool.ReadOnly())
         .AddMcpTool<ListApplications>(tool => tool.ReadOnly())
@@ -197,7 +200,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListSystemInstances>(tool => tool.ReadOnly())
         .AddMcpTool<ListApplicationBoundaryReferences>(tool => tool.ReadOnly())
         .AddMcpTool<ListSystemInstanceBoundaryReferences>(tool => tool.ReadOnly())
-        .AddMcpTool<PreviewApplicationChange>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewApplicationChangeMcpInput>(tool => tool.Named("bdgrz.application.change.preview")
+            .DescribedAs("Invokes the PreviewApplicationChange request.").ReadOnly())
         .AddMcpTool<RetireApplication>(tool => tool.Idempotent())
         .AddMcpTool<RetireSystemInstance>(tool => tool.Idempotent())
         .AddMcpTool<GetAccessReviewScope>(tool => tool.ReadOnly())
@@ -2317,4 +2321,6 @@ readonly record struct ApplicationPreviewHttpBody
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
 [JsonSerializable(typeof(ApplicationRevisionHttpBody))]
 [JsonSerializable(typeof(ApplicationPreviewHttpBody))]
+[JsonSerializable(typeof(ReviseApplicationMcpInput))]
+[JsonSerializable(typeof(PreviewApplicationChangeMcpInput))]
 sealed partial class ApplicationRevisionHttpJsonContext : JsonSerializerContext;

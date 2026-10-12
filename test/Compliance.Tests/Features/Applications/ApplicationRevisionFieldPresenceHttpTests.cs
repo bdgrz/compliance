@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -20,9 +21,239 @@ using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.Features.Applications;
 
-/// <summary>Exercises production MapPortiaPut binding with local event and permission observations.</summary>
+/// <summary>Exercises production HTTP and registered MCP binding with local event and permission observations.</summary>
 public sealed class ApplicationRevisionFieldPresenceHttpTests
 {
+    [Theory]
+    [InlineData(false, "classification")]
+    [InlineData(false, "system_owner_person_id")]
+    [InlineData(false, "access_owner_person_id")]
+    [InlineData(true, "classification")]
+    [InlineData(true, "system_owner_person_id")]
+    [InlineData(true, "access_owner_person_id")]
+    public async Task ShouldRetainOmissionAndRejectExplicitNullWithoutAppendGivenGovernedMcpTool(
+        bool preview, string field)
+    {
+        // Arrange
+        await using var fixture = new Fixture(true);
+        await fixture.SeedAsync();
+        await using var scenario = await fixture.ConnectMcpAsync();
+        var toolName = preview ? "bdgrz.application.change.preview" : "bdgrz.application.revise";
+        var before = await fixture.EventsAsync();
+        var arguments = fixture.McpArguments(preview, 1);
+
+        // Act
+        await scenario.When(toolName, arguments).ExpectSuccess();
+        var retained = await fixture.EventsAsync();
+        arguments[preview ? "expected_application_revision" : "expected_revision"] = preview ? 1 : 2;
+        arguments[field] = null;
+        var cleared = await scenario.When(toolName, arguments);
+
+        // Assert
+        if (preview)
+            Assert.Equal(before, retained);
+        else
+        {
+            Assert.Equal(before.Length + 1, retained.Length);
+            var revised = Assert.IsType<ApplicationRevised>(retained[^1].Event);
+            Assert.Equal("internal", revised.Classification);
+            Assert.Equal(fixture.Owner, revised.SystemOwnerPersonId);
+            Assert.Equal(fixture.Owner, revised.AccessOwnerPersonId);
+        }
+        Assert.True(cleared.IsError, "An explicit required-field clear must fail validation.");
+        Assert.Equal("Validation", cleared.Error?.GetProperty("kind").GetString());
+        Assert.Equal(retained, await fixture.EventsAsync());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldPreserveAdvertisedSchemaAndHintsGivenRegisteredMcpTool(bool preview)
+    {
+        // Arrange: the input schema is frozen from the pre-adapter registered tools.
+        await using var fixture = new Fixture(false);
+        await fixture.SeedAsync();
+        await using var scenario = await fixture.ConnectMcpAsync();
+        var expected = JsonNode.Parse("""
+            {"type":"object","properties":{
+              "tenant_id":true,"application_id":true,
+              "expected_revision":{"type":["string","integer"],"pattern":"^-?(?:0|[1-9]\\d*)$"},
+              "name":{"type":"string"},"purpose":{"type":"string"},
+              "owner_reference":{"type":["string","null"]},
+              "classification":{"type":["string","null"],"default":null},
+              "system_owner_person_id":{"default":null},"access_owner_person_id":{"default":null},
+              "is_restricted":{"type":["boolean","null"],"default":null},
+              "application_kind":{"type":["string","null"],"default":null},
+              "criticality":{"type":["string","null"],"default":null}},
+             "required":["tenant_id","application_id","expected_revision","name","purpose","owner_reference"]}
+            """)!;
+        if (preview)
+        {
+            expected["required"] = new JsonArray("tenant_id", "application_id", "expected_application_revision", "change_kind");
+            var properties = expected["properties"]!.AsObject();
+            properties["expected_application_revision"] = properties["expected_revision"]!.DeepClone();
+            properties.Remove("expected_revision");
+            properties.Remove("is_restricted");
+            properties["change_kind"] = JsonNode.Parse("""{"type":"string"}""");
+            foreach (var field in new[] { "name", "purpose", "owner_reference" })
+                properties[field] = JsonNode.Parse("""{"type":["string","null"],"default":null}""");
+        }
+
+        // Act
+        var tools = await scenario.ListTools();
+        var tool = Assert.Single(tools, item => item.Name == McpToolName(preview));
+
+        // Assert: default:null is a constructor annotation; setters still default to null.
+        Assert.True(JsonNode.DeepEquals(WithoutNullDefaults(expected),
+            WithoutNullDefaults(JsonNode.Parse(tool.InputSchema.GetRawText())!)), tool.InputSchema.GetRawText());
+        Assert.Equal(preview ? "Invokes the PreviewApplicationChange request." : "Invokes the ReviseApplication request.", tool.Description);
+        Assert.Null(tool.Title);
+        Assert.Equal(preview ? true : (bool?)null, tool.ReadOnly);
+        Assert.Equal(preview ? false : (bool?)null, tool.Destructive);
+        Assert.Equal(preview ? null : (bool?)true, tool.Idempotent);
+        Assert.Null(tool.OpenWorld);
+        Assert.Null(tool.Metadata);
+        Assert.Equal(preview, tool.OutputSchema.HasValue);
+    }
+
+    [Theory]
+    [InlineData(false, "classification")]
+    [InlineData(false, "system_owner_person_id")]
+    [InlineData(false, "access_owner_person_id")]
+    [InlineData(true, "classification")]
+    [InlineData(true, "system_owner_person_id")]
+    [InlineData(true, "access_owner_person_id")]
+    public async Task ShouldPreserveLegacyClearGivenUngovernedMcpTool(bool preview, string field)
+    {
+        // Arrange
+        await using var fixture = new Fixture(false);
+        await fixture.SeedAsync();
+        await using var scenario = await fixture.ConnectMcpAsync();
+        var before = await fixture.EventsAsync();
+        var arguments = fixture.McpArguments(preview, 1);
+        arguments[field] = null;
+
+        // Act
+        var result = await scenario.When(McpToolName(preview), arguments).ExpectSuccess();
+
+        // Assert
+        var after = await fixture.EventsAsync();
+        if (preview)
+        {
+            Assert.Equal(before, after);
+            Assert.Contains(result.StructuredJson!.Value.GetProperty("result").GetProperty("changes").EnumerateArray(),
+                change => change.GetProperty("field").GetString() == field && change.GetProperty("after").ValueKind == JsonValueKind.Null);
+        }
+        else
+        {
+            Assert.Equal(before.Length + 1, after.Length);
+            var revised = Assert.IsType<ApplicationRevised>(after[^1].Event);
+            Assert.Null(revised.Classification);
+            Assert.Null(revised.SystemOwnerPersonId);
+            Assert.Null(revised.AccessOwnerPersonId);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, "tenant", "NotFound")]
+    [InlineData(true, "tenant", "NotFound")]
+    [InlineData(false, "owner", "Validation")]
+    [InlineData(true, "owner", "Validation")]
+    [InlineData(false, "stale", "Conflict")]
+    [InlineData(true, "stale", "Conflict")]
+    public async Task ShouldRetainExistingFenceWithoutAppendGivenInvalidMcpToolRequest(
+        bool preview, string invalid, string kind)
+    {
+        // Arrange
+        await using var fixture = new Fixture(true);
+        await fixture.SeedAsync();
+        await using var scenario = await fixture.ConnectMcpAsync();
+        var before = await fixture.EventsAsync();
+        var arguments = fixture.McpArguments(preview, invalid == "stale" ? 2 : 1);
+        if (invalid == "tenant")
+            arguments["tenant_id"] = Uuid.CreateVersion4().ToString();
+        if (invalid == "owner")
+            arguments["system_owner_person_id"] = Uuid.CreateVersion4().ToString();
+
+        // Act
+        await scenario.When(McpToolName(preview), arguments).ExpectFailure(kind);
+
+        // Assert
+        Assert.Equal(before, await fixture.EventsAsync());
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ShouldRejectUnauthorizedActorWithoutAppendGivenMcpTool(
+        bool preview, bool inventoryAllowed)
+    {
+        // Arrange
+        await using var fixture = new Fixture(true, inventoryAllowed, previewAllowed: false);
+        await fixture.SeedAsync();
+        await using var scenario = await fixture.ConnectMcpAsync();
+        var before = await fixture.EventsAsync();
+
+        // Act
+        await scenario.When(McpToolName(preview), fixture.McpArguments(preview, 1)).ExpectFailure("Forbidden");
+
+        // Assert
+        Assert.Equal(before, await fixture.EventsAsync());
+        if (inventoryAllowed)
+            Assert.Contains(fixture.Calls, call => call.Request is PreviewApplicationChange);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldForwardOriginalActorAndExecutionContextGivenMcpTool(bool preview)
+    {
+        // Arrange
+        await using var fixture = new Fixture(true);
+        await fixture.SeedAsync();
+        await using var scenario = await fixture.ConnectMcpAsync();
+        fixture.Calls.Clear();
+
+        // Act
+        await scenario.When(McpToolName(preview), fixture.McpArguments(preview, 1)).ExpectSuccess();
+
+        // Assert
+        var outer = Assert.Single(fixture.Calls, call => preview
+            ? call.Request is PreviewApplicationChangeMcpInput : call.Request is ReviseApplicationMcpInput);
+        var inner = Assert.Single(fixture.Calls, call => preview
+            ? call.Request is PreviewApplicationChange : call.Request is ReviseApplication);
+        Assert.Equal(outer.Context.ExecutionId, inner.Context.ExecutionId);
+        Assert.Equal(outer.Context.StartedAt, inner.Context.StartedAt);
+        Assert.Same(outer.Context.Metadata, inner.Context.Metadata);
+        Assert.Same(outer.Context.Invocation, inner.Context.Invocation);
+        Assert.IsType<McpInvocation>(inner.Context.Invocation);
+        Assert.True(inner.Context.Actor.Identity!.IsAuthenticated);
+        Assert.Equal(outer.Context.Actor.Claims.Select(claim => (claim.Type, claim.Value)),
+            inner.Context.Actor.Claims.Select(claim => (claim.Type, claim.Value)));
+    }
+
+    static string McpToolName(bool preview) => preview ? "bdgrz.application.change.preview" : "bdgrz.application.revise";
+
+    static JsonNode WithoutNullDefaults(JsonNode node)
+    {
+        if (node is JsonObject value)
+        {
+            if (value.ContainsKey("default") && value["default"] is null)
+                value.Remove("default");
+            foreach (var property in value.ToArray())
+                if (property.Value is not null)
+                    value[property.Key] = WithoutNullDefaults(property.Value.DeepClone());
+            if (value.Count == 0)
+                return JsonValue.Create(true)!;
+        }
+        else if (node is JsonArray array)
+            for (var index = 0; index < array.Count; index++)
+                if (array[index] is { } item)
+                    array[index] = WithoutNullDefaults(item.DeepClone());
+        return node;
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -284,10 +515,11 @@ public sealed class ApplicationRevisionFieldPresenceHttpTests
         public Uuid Tenant { get; } = Uuid.CreateVersion4();
         public Uuid Application { get; } = Uuid.CreateVersion4();
         public Uuid Owner { get; } = Uuid.CreateVersion4();
+        public List<BusCall> Calls { get; } = [];
         readonly InMemoryEventStore _events = new();
         string _cookie = "";
 
-        public Fixture(bool enabled)
+        public Fixture(bool enabled, bool inventoryAllowed = true, bool previewAllowed = true)
         {
             _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             {
@@ -312,10 +544,16 @@ public sealed class ApplicationRevisionFieldPresenceHttpTests
                     services.RemoveAll<ITenantActivity>();
                     services.AddSingleton<ITenantActivity, ActiveTenant>();
                     services.RemoveAll<IPermissionAuthorizer>();
-                    services.AddSingleton<IPermissionAuthorizer>(new RecordingPermissionAuthorizer(true));
+                    services.AddSingleton<IPermissionAuthorizer>(new RecordingPermissionAuthorizer(inventoryAllowed));
                     services.RemoveAll<IAccessGrantPermissionAuthorizer>();
-                    services.AddSingleton<IAccessGrantPermissionAuthorizer>(new PreviewPermissions());
+                    services.AddSingleton<IAccessGrantPermissionAuthorizer>(new PreviewPermissions(previewAllowed));
                     services.Configure<PortiaHttpOptions>(options => options.MaxJsonBodyBytes = 512);
+                    var bus = services.Last(descriptor => descriptor.ServiceType == typeof(IRequestBus));
+                    services.RemoveAll<IRequestBus>();
+                    services.Add(new ServiceDescriptor(typeof(IRequestBus), provider =>
+                        new ObservedBus((IRequestBus)(bus.ImplementationInstance ??
+                            bus.ImplementationFactory?.Invoke(provider) ??
+                            ActivatorUtilities.CreateInstance(provider, bus.ImplementationType!)), Calls), bus.Lifetime));
                 });
             });
             _client = _factory.CreateClient();
@@ -351,6 +589,24 @@ public sealed class ApplicationRevisionFieldPresenceHttpTests
         {
             using var body = new StringContent($"{{\"expected_revision\":{revision},\"name\":\"Payroll\",\"purpose\":\"Run payroll\",\"owner_reference\":\"Finance\"{fields}}}", Encoding.UTF8, "application/json");
             return await _client.PutAsync($"/api/v1/tenants/{Tenant}/applications/{Application}", body);
+        }
+
+        public ValueTask<McpScenario> ConnectMcpAsync() => McpScenario.ConnectAsync(_client, new Uri(_client.BaseAddress!, "/mcp"));
+
+        public Dictionary<string, object?> McpArguments(bool preview, long revision)
+        {
+            var arguments = new Dictionary<string, object?>
+            {
+                ["tenant_id"] = Tenant.ToString(),
+                ["application_id"] = Application.ToString(),
+                [preview ? "expected_application_revision" : "expected_revision"] = revision,
+                ["name"] = "Payroll",
+                ["purpose"] = "Run payroll",
+                ["owner_reference"] = "Finance",
+            };
+            if (preview)
+                arguments["change_kind"] = "revise";
+            return arguments;
         }
 
         public async Task<HttpResponseMessage> PreviewAsync(long revision, string fields = "")
@@ -400,13 +656,35 @@ public sealed class ApplicationRevisionFieldPresenceHttpTests
         }
     }
 
-    sealed class PreviewPermissions : IAccessGrantPermissionAuthorizer
+    sealed record BusCall(IRequestBase Request, RequestDispatchContext Context);
+
+    sealed class ObservedBus(IRequestBus inner, List<BusCall> calls) : IRequestBus
+    {
+        public RequestDispatchContext CreateContext(ClaimsPrincipal actor, RequestMetadata? metadata = null) =>
+            inner.CreateContext(actor, metadata);
+        public ValueTask<Result> AuthorizeAsync(IRequestBase request, RequestDispatchContext context, CancellationToken ct = default) =>
+            inner.AuthorizeAsync(request, context, ct);
+        public ValueTask<Result> DispatchAsync(IRequest request, RequestDispatchContext context, CancellationToken ct = default)
+        {
+            calls.Add(new(request, context));
+            return inner.DispatchAsync(request, context, ct);
+        }
+        public ValueTask<Result<TOut>> DispatchAsync<TOut>(IRequest<TOut> request, RequestDispatchContext context, CancellationToken ct = default)
+        {
+            calls.Add(new(request, context));
+            return inner.DispatchAsync(request, context, ct);
+        }
+        public IAsyncEnumerable<TOut> DispatchStreamAsync<TOut>(IStreamRequest<TOut> request, RequestDispatchContext context,
+            CancellationToken ct = default) => inner.DispatchStreamAsync(request, context, ct);
+    }
+
+    sealed class PreviewPermissions(bool allowed) : IAccessGrantPermissionAuthorizer
     {
         public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
-            Uuid programId, string permission, CancellationToken ct = default) => ValueTask.FromResult(true);
+            Uuid programId, string permission, CancellationToken ct = default) => ValueTask.FromResult(allowed);
         public ValueTask<ProgramAccessVisibility> GetProgramVisibilityAsync(Uuid tenantId,
             Uuid userId, Uuid memberId, string permission, CancellationToken ct = default) =>
-            ValueTask.FromResult(new ProgramAccessVisibility(true, new HashSet<Uuid>()));
+            ValueTask.FromResult(new ProgramAccessVisibility(allowed, new HashSet<Uuid>()));
     }
 
     sealed class BlockingReadStream : Stream
