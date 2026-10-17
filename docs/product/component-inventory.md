@@ -6,6 +6,8 @@ For the reconciled command list, requirement coverage and remaining work, use [S
 
 For the read layer, use the [query and view-model list](query-and-view-model-list.md) for the pruned, story-backed backfill. Proposed query candidates later in this inventory are not all required; optional collection and unsettled commerce/capacity hypotheses are excluded there.
 
+For the event layer, use the [domain event list](domain-event-list.md) for the pruned, story-backed backfill. It supersedes unvalidated event candidates in the proposed completion inventory below.
+
 This inventory covers commands, queries, domain events, aggregates, models, HTTP/MCP APIs, reactors, and projectors for the documented Compliance product. It includes the complete local source inventory below and a proposed completion inventory for later workflows. Source presence is not proof of delivery, registration, tests, authorization correctness, or release acceptance. GitHub delivery status was not audited for this document.
 
 ## How to read the inventory
@@ -269,7 +271,7 @@ The following is a static source inventory, including internal operations. Queri
 | --- | ---: |
 | Commands | 230 |
 | Queries | 271 |
-| Events | 236 |
+| Events | 364 |
 | Aggregates | 68 |
 | Models and supporting contracts | 490 |
 | Reactors | 30 |
@@ -980,6 +982,352 @@ The following is a static source inventory, including internal operations. Queri
 - [GetOwnAttestRecordPackage](../../src/Compliance.Common/Features/AttestRecords/GetOwnAttestRecordPackage.cs#L9) — `bdgrz.attest-records.get-own-attest-record-package` v1
 - [GetOwnAttestRecordDelivery](../../src/Compliance.Common/Features/AttestRecords/GetOwnAttestRecordDelivery.cs#L9) — `bdgrz.attest-records.get-own-attest-record-delivery` v1
 - [ListOutstandingAttestDeliveryHolds](../../src/Compliance.Common/Features/AttestRecords/ListOutstandingAttestDeliveryHolds.cs#L9) — `bdgrz.attest-records.list-outstanding-attest-delivery-holds` v1
+
+### Backfilled event contracts
+
+These 128 requirement-backed event contracts have been added since the existing-event inventory below was captured. The eight readiness-import events remain deferred. Contract presence does not mean command handlers emit them or projectors consume them.
+
+#### AccessControl
+
+- [IndependenceRuleVersionRatified](../../src/Compliance.Common/Features/AccessControl/IndependenceRuleVersionRatified.cs#L6)
+
+- [PartnerIndependenceEvaluationRecorded](../../src/Compliance.Common/Features/AccessControl/PartnerIndependenceEvaluationRecorded.cs#L6)
+
+- [ServiceEngagementStaffAssigned](../../src/Compliance.Common/Features/AccessControl/ServiceEngagementStaffAssigned.cs#L6)
+
+
+
+#### AdvisorCollaboration
+
+- [AdvisorFeedbackCorrected](../../src/Compliance.Common/Features/AdvisorCollaboration/AdvisorFeedbackCorrected.cs#L6)
+
+- [AdvisorFeedbackRecorded](../../src/Compliance.Common/Features/AdvisorCollaboration/AdvisorFeedbackRecorded.cs#L6)
+
+- [AdvisorFeedbackResolved](../../src/Compliance.Common/Features/AdvisorCollaboration/AdvisorFeedbackResolved.cs#L6)
+
+- [AdvisorFeedbackResponded](../../src/Compliance.Common/Features/AdvisorCollaboration/AdvisorFeedbackResponded.cs#L6)
+
+- [AdvisorHandoffClosed](../../src/Compliance.Common/Features/AdvisorCollaboration/AdvisorHandoffClosed.cs#L6)
+
+- [AdvisorHandoffReadiedForReview](../../src/Compliance.Common/Features/AdvisorCollaboration/AdvisorHandoffReadiedForReview.cs#L6)
+
+- [AdvisorHandoffRevoked](../../src/Compliance.Common/Features/AdvisorCollaboration/AdvisorHandoffRevoked.cs#L6)
+
+- [AdvisorHandoffSelectionRevised](../../src/Compliance.Common/Features/AdvisorCollaboration/AdvisorHandoffSelectionRevised.cs#L6)
+
+- [AdvisorRequestOpened](../../src/Compliance.Common/Features/AdvisorCollaboration/AdvisorRequestOpened.cs#L6)
+
+
+
+#### Applications
+
+
+
+
+
+
+
+
+
+- [SystemInstanceRevised](../../src/Compliance.Common/Features/Applications/SystemInstanceRevised.cs#L6)
+
+
+
+#### AttestRecords
+
+- [DeliveredEngagementHoldReleased](../../src/Compliance.Common/Features/AttestRecords/DeliveredEngagementHoldReleased.cs#L6)
+
+- [OwnAttestRecordDeliveryRecorded](../../src/Compliance.Common/Features/AttestRecords/OwnAttestRecordDeliveryRecorded.cs#L6)
+
+- [OwnAttestRecordDeliveryVerified](../../src/Compliance.Common/Features/AttestRecords/OwnAttestRecordDeliveryVerified.cs#L6)
+
+- [OwnAttestRecordPackagePrepared](../../src/Compliance.Common/Features/AttestRecords/OwnAttestRecordPackagePrepared.cs#L6)
+
+
+
+#### AuditPackages
+
+- [AuditPackageAmended](../../src/Compliance.Common/Features/AuditPackages/AuditPackageAmended.cs#L6)
+
+- [AuditPackageBuildFailed](../../src/Compliance.Common/Features/AuditPackages/AuditPackageBuildFailed.cs#L6)
+
+- [AuditPackageBuildRequested](../../src/Compliance.Common/Features/AuditPackages/AuditPackageBuildRequested.cs#L6)
+
+- [AuditPackageBuilt](../../src/Compliance.Common/Features/AuditPackages/AuditPackageBuilt.cs#L6)
+
+- [AuditPackageDelivered](../../src/Compliance.Common/Features/AuditPackages/AuditPackageDelivered.cs#L6)
+
+- [AuditPackageDisclosureApproved](../../src/Compliance.Common/Features/AuditPackages/AuditPackageDisclosureApproved.cs#L6)
+
+- [AuditPackageValidated](../../src/Compliance.Common/Features/AuditPackages/AuditPackageValidated.cs#L6)
+
+- [AuditPackageValidationOverrideApproved](../../src/Compliance.Common/Features/AuditPackages/AuditPackageValidationOverrideApproved.cs#L6)
+
+
+
+#### AuditPopulations
+
+- [AuditPopulationAmended](../../src/Compliance.Common/Features/AuditPopulations/AuditPopulationAmended.cs#L6)
+
+- [AuditPopulationDefined](../../src/Compliance.Common/Features/AuditPopulations/AuditPopulationDefined.cs#L6)
+
+- [AuditPopulationExportGenerated](../../src/Compliance.Common/Features/AuditPopulations/AuditPopulationExportGenerated.cs#L6)
+
+- [AuditPopulationFactRecorded](../../src/Compliance.Common/Features/AuditPopulations/AuditPopulationFactRecorded.cs#L6)
+
+- [AuditPopulationFrozen](../../src/Compliance.Common/Features/AuditPopulations/AuditPopulationFrozen.cs#L6)
+
+- [AuditPopulationGenerated](../../src/Compliance.Common/Features/AuditPopulations/AuditPopulationGenerated.cs#L6)
+
+- [AuditPopulationReconciled](../../src/Compliance.Common/Features/AuditPopulations/AuditPopulationReconciled.cs#L6)
+
+- [AuditPopulationRowClassified](../../src/Compliance.Common/Features/AuditPopulations/AuditPopulationRowClassified.cs#L6)
+
+- [ObservationPeriodCloseFrozen](../../src/Compliance.Common/Features/AuditPopulations/ObservationPeriodCloseFrozen.cs#L6)
+
+- [ObservationPeriodCloseProposed](../../src/Compliance.Common/Features/AuditPopulations/ObservationPeriodCloseProposed.cs#L6)
+
+- [TypeIIPeriodCloseAmended](../../src/Compliance.Common/Features/AuditPopulations/TypeIIPeriodCloseAmended.cs#L6)
+
+- [TypeIIPeriodCloseApproved](../../src/Compliance.Common/Features/AuditPopulations/TypeIIPeriodCloseApproved.cs#L6)
+
+
+
+#### AuditorRequests
+
+- [AuditResponseDraftCreated](../../src/Compliance.Common/Features/AuditorRequests/AuditResponseDraftCreated.cs#L6)
+
+- [AuditResponseDraftRevised](../../src/Compliance.Common/Features/AuditorRequests/AuditResponseDraftRevised.cs#L6)
+
+- [AuditorRequestAssigned](../../src/Compliance.Common/Features/AuditorRequests/AuditorRequestAssigned.cs#L6)
+
+- [AuditorRequestCommentRecorded](../../src/Compliance.Common/Features/AuditorRequests/AuditorRequestCommentRecorded.cs#L6)
+
+- [AuditorRequestRecorded](../../src/Compliance.Common/Features/AuditorRequests/AuditorRequestRecorded.cs#L6)
+
+- [AuditorRequestReopened](../../src/Compliance.Common/Features/AuditorRequests/AuditorRequestReopened.cs#L6)
+
+- [AuditorRequestResolved](../../src/Compliance.Common/Features/AuditorRequests/AuditorRequestResolved.cs#L6)
+
+- [AuditorRequestRevised](../../src/Compliance.Common/Features/AuditorRequests/AuditorRequestRevised.cs#L6)
+
+- [AuditorResponseDelivered](../../src/Compliance.Common/Features/AuditorRequests/AuditorResponseDelivered.cs#L6)
+
+- [AuditorResponseDisclosureReviewed](../../src/Compliance.Common/Features/AuditorRequests/AuditorResponseDisclosureReviewed.cs#L6)
+
+- [AuditorResponseDispositionRecorded](../../src/Compliance.Common/Features/AuditorRequests/AuditorResponseDispositionRecorded.cs#L6)
+
+- [AuditorResponseSubmitted](../../src/Compliance.Common/Features/AuditorRequests/AuditorResponseSubmitted.cs#L6)
+
+- [SampleSelectionRecorded](../../src/Compliance.Common/Features/AuditorRequests/SampleSelectionRecorded.cs#L6)
+
+
+
+#### Changes
+
+
+
+
+- [ImpactReviewWorkLinked](../../src/Compliance.Common/Features/Changes/ImpactReviewWorkLinked.cs#L6)
+
+
+- [SignificantChangeImpactAssessed](../../src/Compliance.Common/Features/Changes/SignificantChangeImpactAssessed.cs#L6)
+
+- [SignificantChangeRecorded](../../src/Compliance.Common/Features/Changes/SignificantChangeRecorded.cs#L6)
+
+- [SignificantChangeRevised](../../src/Compliance.Common/Features/Changes/SignificantChangeRevised.cs#L6)
+
+
+
+#### Commitments
+
+- [CommitmentRetired](../../src/Compliance.Common/Features/Commitments/CommitmentRetired.cs#L6)
+
+
+
+#### Evidence
+
+- [EvidenceArtifactDownloadIssued](../../src/Compliance.Common/Features/Evidence/EvidenceArtifactDownloadIssued.cs#L6)
+
+- [EvidenceSupportLinked](../../src/Compliance.Common/Features/Evidence/EvidenceSupportLinked.cs#L6)
+
+
+
+#### Examinations
+
+- [AuditObservationFindingLinked](../../src/Compliance.Common/Features/Examinations/AuditObservationFindingLinked.cs#L6)
+
+- [AuditObservationRecorded](../../src/Compliance.Common/Features/Examinations/AuditObservationRecorded.cs#L6)
+
+- [AuditOutcomeRecorded](../../src/Compliance.Common/Features/Examinations/AuditOutcomeRecorded.cs#L6)
+
+- [ExaminationEngagementOpened](../../src/Compliance.Common/Features/Examinations/ExaminationEngagementOpened.cs#L6)
+
+- [ExaminationEngagementRevised](../../src/Compliance.Common/Features/Examinations/ExaminationEngagementRevised.cs#L6)
+
+- [ExaminationSignedOff](../../src/Compliance.Common/Features/Examinations/ExaminationSignedOff.cs#L6)
+
+- [ManagementAssertionRecorded](../../src/Compliance.Common/Features/Examinations/ManagementAssertionRecorded.cs#L6)
+
+- [RepresentationLetterRecorded](../../src/Compliance.Common/Features/Examinations/RepresentationLetterRecorded.cs#L6)
+
+- [TypeIBaselineAmended](../../src/Compliance.Common/Features/Examinations/TypeIBaselineAmended.cs#L6)
+
+- [TypeIBaselineFrozen](../../src/Compliance.Common/Features/Examinations/TypeIBaselineFrozen.cs#L6)
+
+- [TypeIIPlanApproved](../../src/Compliance.Common/Features/Examinations/TypeIIPlanApproved.cs#L6)
+
+- [TypeIIPlanProposed](../../src/Compliance.Common/Features/Examinations/TypeIIPlanProposed.cs#L6)
+
+
+
+#### Exports
+
+- [ClientExportBuildFailed](../../src/Compliance.Common/Features/Exports/ClientExportBuildFailed.cs#L6)
+
+- [ClientExportBuilt](../../src/Compliance.Common/Features/Exports/ClientExportBuilt.cs#L6)
+
+- [ClientExportDelivered](../../src/Compliance.Common/Features/Exports/ClientExportDelivered.cs#L6)
+
+- [ClientExportRequested](../../src/Compliance.Common/Features/Exports/ClientExportRequested.cs#L6)
+
+
+
+#### MethodologyTemplates
+
+- [MethodologyTemplateApplied](../../src/Compliance.Common/Features/MethodologyTemplates/MethodologyTemplateApplied.cs#L6)
+
+- [MethodologyTemplateContributionAccepted](../../src/Compliance.Common/Features/MethodologyTemplates/MethodologyTemplateContributionAccepted.cs#L6)
+
+- [MethodologyTemplateContributionProposed](../../src/Compliance.Common/Features/MethodologyTemplates/MethodologyTemplateContributionProposed.cs#L6)
+
+- [MethodologyTemplateContributionReviewed](../../src/Compliance.Common/Features/MethodologyTemplates/MethodologyTemplateContributionReviewed.cs#L6)
+
+- [MethodologyTemplateCreated](../../src/Compliance.Common/Features/MethodologyTemplates/MethodologyTemplateCreated.cs#L6)
+
+- [MethodologyTemplateDraftRevised](../../src/Compliance.Common/Features/MethodologyTemplates/MethodologyTemplateDraftRevised.cs#L6)
+
+- [MethodologyTemplateRetired](../../src/Compliance.Common/Features/MethodologyTemplates/MethodologyTemplateRetired.cs#L6)
+
+- [MethodologyTemplateVersionPublished](../../src/Compliance.Common/Features/MethodologyTemplates/MethodologyTemplateVersionPublished.cs#L6)
+
+- [TemplateSuccessorAdoptionProposed](../../src/Compliance.Common/Features/MethodologyTemplates/TemplateSuccessorAdoptionProposed.cs#L6)
+
+- [TemplateSuccessorDispositionRecorded](../../src/Compliance.Common/Features/MethodologyTemplates/TemplateSuccessorDispositionRecorded.cs#L6)
+
+
+
+#### Operations
+
+- [DueControlOccurrencesGenerated](../../src/Compliance.Common/Features/Operations/DueControlOccurrencesGenerated.cs#L6)
+
+- [FutureControlScheduleRevised](../../src/Compliance.Common/Features/Operations/FutureControlScheduleRevised.cs#L6)
+
+- [GovernanceReviewScheduled](../../src/Compliance.Common/Features/Operations/GovernanceReviewScheduled.cs#L6)
+
+- [ManagementReviewActionCompleted](../../src/Compliance.Common/Features/Operations/ManagementReviewActionCompleted.cs#L6)
+
+- [ManagementReviewActionRecorded](../../src/Compliance.Common/Features/Operations/ManagementReviewActionRecorded.cs#L6)
+
+- [ManagementReviewRecorded](../../src/Compliance.Common/Features/Operations/ManagementReviewRecorded.cs#L6)
+
+- [MissingOccurrenceRecorded](../../src/Compliance.Common/Features/Operations/MissingOccurrenceRecorded.cs#L6)
+
+- [ObservationPeriodAmended](../../src/Compliance.Common/Features/Operations/ObservationPeriodAmended.cs#L6)
+
+- [ObservationPeriodEnded](../../src/Compliance.Common/Features/Operations/ObservationPeriodEnded.cs#L6)
+
+- [ObservationPeriodStarted](../../src/Compliance.Common/Features/Operations/ObservationPeriodStarted.cs#L6)
+
+- [TypeIIOperatingPlanApproved](../../src/Compliance.Common/Features/Operations/TypeIIOperatingPlanApproved.cs#L6)
+
+- [TypeIIOperatingPlanProposed](../../src/Compliance.Common/Features/Operations/TypeIIOperatingPlanProposed.cs#L6)
+
+- [TypeIIOperatingPlanReviewed](../../src/Compliance.Common/Features/Operations/TypeIIOperatingPlanReviewed.cs#L6)
+
+
+
+#### Programs
+
+- [NextObservationPeriodStarted](../../src/Compliance.Common/Features/Programs/NextObservationPeriodStarted.cs#L6)
+
+- [OpenRemediationCarriedForward](../../src/Compliance.Common/Features/Programs/OpenRemediationCarriedForward.cs#L6)
+
+- [ProgramRolloverApproved](../../src/Compliance.Common/Features/Programs/ProgramRolloverApproved.cs#L6)
+
+- [ProgramRolloverProposed](../../src/Compliance.Common/Features/Programs/ProgramRolloverProposed.cs#L6)
+
+
+
+#### Retention
+
+- [ArtifactDisclosureApproved](../../src/Compliance.Common/Features/Retention/ArtifactDisclosureApproved.cs#L6)
+
+- [ArtifactDisclosureDelivered](../../src/Compliance.Common/Features/Retention/ArtifactDisclosureDelivered.cs#L6)
+
+- [ArtifactDisclosureRevoked](../../src/Compliance.Common/Features/Retention/ArtifactDisclosureRevoked.cs#L6)
+
+- [ArtifactDispositionApproved](../../src/Compliance.Common/Features/Retention/ArtifactDispositionApproved.cs#L6)
+
+- [ArtifactDispositionExecutionRequested](../../src/Compliance.Common/Features/Retention/ArtifactDispositionExecutionRequested.cs#L6)
+
+- [ArtifactDispositionResultRecorded](../../src/Compliance.Common/Features/Retention/ArtifactDispositionResultRecorded.cs#L6)
+
+- [ArtifactEngagementHoldPlaced](../../src/Compliance.Common/Features/Retention/ArtifactEngagementHoldPlaced.cs#L6)
+
+- [ArtifactEngagementHoldReleased](../../src/Compliance.Common/Features/Retention/ArtifactEngagementHoldReleased.cs#L6)
+
+- [ArtifactHandlingPolicyAssigned](../../src/Compliance.Common/Features/Retention/ArtifactHandlingPolicyAssigned.cs#L6)
+
+- [EngagementReportIssued](../../src/Compliance.Common/Features/Retention/EngagementReportIssued.cs#L6)
+
+
+
+#### SystemDescription
+
+- [SystemDescriptionApproved](../../src/Compliance.Common/Features/SystemDescription/SystemDescriptionApproved.cs#L6)
+
+- [SystemDescriptionBound](../../src/Compliance.Common/Features/SystemDescription/SystemDescriptionBound.cs#L6)
+
+- [SystemDescriptionDraftCreated](../../src/Compliance.Common/Features/SystemDescription/SystemDescriptionDraftCreated.cs#L6)
+
+- [SystemDescriptionDraftRevised](../../src/Compliance.Common/Features/SystemDescription/SystemDescriptionDraftRevised.cs#L6)
+
+- [SystemDescriptionExportGenerated](../../src/Compliance.Common/Features/SystemDescription/SystemDescriptionExportGenerated.cs#L6)
+
+- [SystemDescriptionNoChangeRecorded](../../src/Compliance.Common/Features/SystemDescription/SystemDescriptionNoChangeRecorded.cs#L6)
+
+- [SystemDescriptionReviewed](../../src/Compliance.Common/Features/SystemDescription/SystemDescriptionReviewed.cs#L6)
+
+- [SystemDescriptionSourcesBound](../../src/Compliance.Common/Features/SystemDescription/SystemDescriptionSourcesBound.cs#L6)
+
+- [SystemDescriptionSuccessorProposed](../../src/Compliance.Common/Features/SystemDescription/SystemDescriptionSuccessorProposed.cs#L6)
+
+
+
+#### Tenants
+
+- [TenantOffboardingCompleted](../../src/Compliance.Common/Features/Tenants/TenantOffboardingCompleted.cs#L6)
+
+
+
+#### UserIdentities
+
+- [TenantIdentityProviderConfigured](../../src/Compliance.Common/Features/UserIdentities/TenantIdentityProviderConfigured.cs#L6)
+
+- [TenantIdentityProviderCredentialsRotated](../../src/Compliance.Common/Features/UserIdentities/TenantIdentityProviderCredentialsRotated.cs#L6)
+
+- [TenantIdentityProviderDisabled](../../src/Compliance.Common/Features/UserIdentities/TenantIdentityProviderDisabled.cs#L6)
+
+- [TenantIdentityProviderTested](../../src/Compliance.Common/Features/UserIdentities/TenantIdentityProviderTested.cs#L6)
+
+
+### Incidents
+
+- [ComplianceIncidentImpactAssessed](../../src/Compliance.Common/Features/Incidents/ComplianceIncidentImpactAssessed.cs#L6)
+- [ComplianceIncidentRecorded](../../src/Compliance.Common/Features/Incidents/ComplianceIncidentRecorded.cs#L6)
+- [ComplianceIncidentRevised](../../src/Compliance.Common/Features/Incidents/ComplianceIncidentRevised.cs#L6)
+- [IncidentResolutionRecorded](../../src/Compliance.Common/Features/Incidents/IncidentResolutionRecorded.cs#L6)
 
 ### Existing events
 

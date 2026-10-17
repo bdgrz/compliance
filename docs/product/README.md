@@ -27,6 +27,7 @@ professional engagements, and enforced independence.
 | [System command list](command-list.md) | Existing commands plus the pruned, requirement-linked commands needed for committed product features |
 | [Command gap analysis](command-inventory-gap-analysis.md) | Story-by-story coverage and rationale for missing or decision-gated commands |
 | [Query and view-model list](query-and-view-model-list.md) | Existing query/model inventory plus requirement-linked read contracts and response views to backfill |
+| [Domain event list](domain-event-list.md) | Existing event inventory plus the pruned, requirement-linked event contracts to backfill |
 | [Product decisions](decisions/) | Accepted M0 decisions and subsequent bounded product decisions |
 | [Backlog](backlog.md) | Story users, outcomes, requirements, owners, dependencies, and acceptance evidence |
 | [Delivery cycle](delivery-cycle.md) | Release exits, scheduling, implementation boundaries, and delivery evidence |

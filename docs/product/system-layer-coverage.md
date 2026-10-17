@@ -8,7 +8,7 @@ Reconciled 2026-10-17 against `src/Compliance.Common` and `src/Compliance.Core`.
 | --- | ---: | --- |
 | Request/command contracts | 230 inventoried contracts, plus 5 new evidence contracts | [Existing commands](component-inventory.md#existing-commands) and [command list](command-list.md) |
 | Query contracts | 271 (216 existing + 55 backfilled contracts) | [Existing queries](component-inventory.md#existing-queries) and [required query/view-model backfill](query-and-view-model-list.md) |
-| Domain events | 236 | [Existing events](component-inventory.md#existing-events) |
+| Domain events | 364 (236 existing + 128 backfilled contracts) | [Existing events](component-inventory.md#existing-events) and [required event backfill](domain-event-list.md) |
 | Aggregates | 68 | [Existing aggregates](component-inventory.md#existing-aggregates) |
 | Models, views, and supporting contracts | 490 (436 existing + 54 response views) | [Existing models](component-inventory.md#existing-models-and-supporting-contracts) and [required query/view-model backfill](query-and-view-model-list.md) |
 
@@ -20,7 +20,7 @@ The former broad proposal list mixed required work with hypotheses and unresolve
 
 The pruned plan retains 127 feature-backed command additions. Five have contract files and 122 still need request-contract types. Excluded P2 hypotheses, unsettled BO scope, and unvalidated Privacy scope are not counted as required product commands.
 
-The proposed component inventory contains 74 query names, 107 event names, and 72 aggregate/model names that are not present in source. These are proposal-only candidates, not confirmed product requirements, so they must not be counted as missing required code. The feature backlog and accepted decisions determine which should survive the same pruning pass. A generic payload type would not constitute a usable query, view model, event, or domain model.
+The domain-event backfill adds 128 typed per-file contracts from accepted backlog requirements; 8 readiness-import events remain deferred. Contracts still require handler emission, aggregate transitions, and projector consumption.
 
 ## Validation
 
