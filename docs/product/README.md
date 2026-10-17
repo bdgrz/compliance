@@ -24,6 +24,9 @@ professional engagements, and enforced independence.
 | [Business operations](business-operations.md) | Multiple organizations per account, client management delegation, organization billing, add-on acceptance, and commercial readiness decisions |
 | [Domain model](domain-model.md) | Process spine, cohesive ownership, relationships, and cross-workflow rules |
 | [Canonical entity model](canonical-entity-model.md) | Approved identity, workforce, inventory, access, and provenance vocabulary |
+| [System command list](command-list.md) | Existing commands plus the pruned, requirement-linked commands needed for committed product features |
+| [Command gap analysis](command-inventory-gap-analysis.md) | Story-by-story coverage and rationale for missing or decision-gated commands |
+| [Query and view-model list](query-and-view-model-list.md) | Existing query/model inventory plus requirement-linked read contracts and response views to backfill |
 | [Product decisions](decisions/) | Accepted M0 decisions and subsequent bounded product decisions |
 | [Backlog](backlog.md) | Story users, outcomes, requirements, owners, dependencies, and acceptance evidence |
 | [Delivery cycle](delivery-cycle.md) | Release exits, scheduling, implementation boundaries, and delivery evidence |
@@ -126,3 +129,4 @@ document assigns client implementation to the backend repository.
 
 The [work queue source coverage](work-queue-source-coverage.md) records projected
 source families, search/count semantics, and remaining source-placement decisions.
+- [System layer coverage](system-layer-coverage.md) — source-backed counts and explicit coded-versus-proposed gaps across commands, queries, events, aggregates, and models.
